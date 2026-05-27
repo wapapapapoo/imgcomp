@@ -73,7 +73,7 @@ $$
 
 ## balle2018
 
-针对这一问题，在 balle2016 的基础上，balle et al. 进一步引入了 hyperprior[^balle2018variational]。核心动机来自一个直接的观察：$g_a$ 产生的隐变量 $y$ 在各位置的能量差异巨大，例如，边缘、纹理区域的响应集中且幅值大，平坦区域的响应稀疏且接近零。即隐变量的方差在空间上是非平稳的，且在粗糙的尺度上呈现低频聚集特征。然而，如前文所述，balle2016 的因子化先验却假设所有位置的 $y$ 独立同分布，这意味着整张图用一种策略去编码。一旦这一假设与真实边缘分布不匹配，则算术编码分配给 $\tilde{y}_i$ 的码字长度就不再是信息意义下的最短码长：对于方差大的区域，模型将大幅值的 $\tilde{y}_i$ 误判为极不可能事件而给予过长的码字；对方差小的区域，又因概率密度估算过宽而产生编码冗余。
+针对这一问题，在 balle2016 的基础上，balle et al. 进一步引入了 hyperprior[^balle2018variational]。核心动机来自一个直接的观察： $g_a$ 产生的隐变量 $y$ 在各位置的能量差异巨大，例如，边缘、纹理区域的响应集中且幅值大，平坦区域的响应稀疏且接近零。即隐变量的方差在空间上是非平稳的，且在粗糙的尺度上呈现低频聚集特征。然而，如前文所述，balle2016 的因子化先验却假设所有位置的 $y$ 独立同分布，这意味着整张图用一种策略去编码。一旦这一假设与真实边缘分布不匹配，则算术编码分配给 $\tilde{y}_i$ 的码字长度就不再是信息意义下的最短码长：对于方差大的区域，模型将大幅值的 $\tilde{y}_i$ 误判为极不可能事件而给予过长的码字；对方差小的区域，又因概率密度估算过宽而产生编码冗余。
 
 因此，一个自然的改进方向是让每个 $\tilde{y}_i$ 拥有一个适配该处统计特征的分布，而不是所有位置共用一个分布。然而，直接传递每个位置的分布参数 (如标准差场 $\sigma \in \mathbb{R}^{B \times H \times W}$) 等于额外传输一整张图，在码率上不可接受。因此需要用一种参数化的分布建模 $\tilde{y}_i$，参数由一段附加的 side information 来动态指定。
 
@@ -83,13 +83,34 @@ $$
 y_i = \sigma_i \cdot \epsilon_i,\quad \epsilon_i \sim \mathcal{N}(0,1).
 $$
 
-换言之，给定局部方差 $\sigma_i^2$，$y_i$ 近似服从零均值高斯 $\mathcal{N}(0,\sigma_i^2)$，$\sigma_i$ 越大则分布越扁平，能够容忍较大误差，$\sigma_i$ 越小则分布越尖峰，需更精确地编码。因此，每个 $\tilde{y}_i$ 的分布可以由一个单一的尺度参数 $\sigma_i$ 完全确定。于是，文章将 $\tilde{y}$ 的条件先验地建模为零均值高斯分布：
+换言之，给定局部方差 $\sigma_i^2$ ， $y_i$ 近似服从零均值高斯 $\mathcal{N}(0,\sigma_i^2)$ ， $\sigma_i$ 越大则分布越扁平，能够容忍较大误差， $\sigma_i$ 越小则分布越尖峰，需更精确地编码。因此，每个 $\tilde{y}_i$ 的分布可以由一个单一的尺度参数 $\sigma_i$ 完全确定。于是，文章将 $\tilde{y}$ 的条件先验地建模为零均值高斯分布：
 
 $$
-p_{\tilde{y}|\tilde{z}}(\tilde{y}_i | \tilde{z}) = f_{\mathcal{N}(0, \hat{\sigma}_i^2) * \mathcal{U}(-0.5, 0.5)}(\tilde{y}_i),
+\begin{aligned}
+p_{\tilde y|\tilde z}(\tilde y_i|\tilde z)
+&=
+p_{(y_i+\Delta_i)|\tilde z}(\tilde y_i|\tilde z) \\
+&=
+\int
+p_{y_i|\tilde z}(t|\tilde z)
+p_{\Delta_i}(\tilde y_i-t),dt \\
+&=
+\int
+f_{\mathcal N(0,\hat\sigma_i^2)}(t)
+f_{\mathcal U(-0.5,0.5)}(\tilde y_i-t) dt \\
+&=
+f_{\mathcal N(0,\hat\sigma_i^2)
+*
+\mathcal U(-0.5,0.5)}
+(\tilde y_i).
+\end{aligned}
 $$
 
-即每个 $\tilde{y}_i$ 的分布采用高斯密度函数 $f_{\mathcal{N}(0, \hat{\sigma}_i^2)}(\cdot)$ 再与量化噪声的均匀密度 $f_{\mathcal{U}(-0.5,0.5)}(\cdot)$ 的卷积来表征。在编码时，$\hat{y} \in \mathbb{Z}$，编码 $\hat{y}_i$ 码字长度为 $-\log_2 P_{\hat{y}_i}(\hat{y}_i)$，其中 $P_{\hat{y}_i}(\hat{y}_i) = \int_{\hat{y}_i-0.5}^{\hat{y}_i+0.5} f_{\mathcal{N}(0, \hat{\sigma}_i^2) * \mathcal{U}(-0.5, 0.5)}(t)\,dt$。
+即每个 $\tilde{y}\_i$ 的分布采用高斯密度函数 $f\_{\mathcal{N}(0, \hat{\sigma}\_i^2)}(\cdot)$ 再与量化噪声的均匀密度 $f\_{\mathcal{U}(-0.5,0.5)}(\cdot)$ 的卷积来表征。在编码时， $\hat{y} \in \mathbb{Z}$ ，编码 $\hat{y}\_i$ 码字长度为 $-\log P\_{\hat{y}\_i}(\hat{y}\_i)$ ，其中 
+
+$$
+P_{\hat{y}_i}(\hat{y}_i) = \int_{\hat{y}_i-0.5}^{\hat{y}_i+0.5} f_{\mathcal{N}(0, \hat{\sigma}_i^2) * \mathcal{U}(-0.5, 0.5)}(t) dt.
+$$
 
 如前文所述，直接编码传递方差 $\sigma$ 显然不现实。恰好，作者注意到 $\sigma$ 的变化是低频聚集性的，相邻像素的 $\sigma_i$ 总是接近。因此，可以将 $\hat{\sigma}$ 视为一个具有较大冗余的方差场，再进一步压缩。于是 balle2018 为 $\hat{\sigma}$ 设计了一个 hyper AE, hyper analysis transform $h_a$ 将 $y$ 作进一步压缩得到超先验 $z$，经过量化、算术编码后作为 side information 录入码流，解码端用 hyper synthesis transform $h_s$ 从 $\hat{z}$ 中上采样重构出 $\hat{\sigma}$。
 
