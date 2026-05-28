@@ -167,6 +167,9 @@ graph TB
     C6 ---> C7
 ```
 
+# minnen2018
+
+如 balle2016 [^balle2016endtoend]，单纯依靠一对AE+量化的类 VAE 结构，由于深度学习模型本身的边际效用递减问题，即便经过充分训练， $y$ 还依然残留大量依赖 (即冗余)，无法进一步逼近熵模型对 $p(y_i)$ 估计的极限，产出更容易被熵模型压缩的编码。balle2018 [^balle2018variational] 和 minnen2018 [^minnen2018joint] 本质上是引入条件熵模型 (Conditional Entropy Model, CEM)，最终编码由 $p(y_i|Cond)$ 指导，而这一条件 $Cond$ 可以认为其对应着 $y$ 中残存的依赖的结构。在 balle2018 [^balle2018variational] 中，CEM 选用 GSM， $Cond$ 是由 hyperprior side information 分支产生的参数 $\sigma$，依照论文的分析，这一分支可以认为表示着作者发现的 $y$ 局部的分布的方差对 $y$ 的粗粒度空间结构的依赖。在 minnen2018 [^minnen2018joint] 中，CEM 选用 GMM， $Cond$ 由 hyperprior 和 context model 混合模型产生的参数，这一分支可视为同时表示了 balle2018 指出的依赖和作者发现的精细化空间内的依赖。若后续研究者发现了 $y$ 中存在的新的依赖，他们可以继续沿用此范式，设计一个模块建模这个依赖，融合进 $Cond$ 中。
 
 ## References
 
