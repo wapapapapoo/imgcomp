@@ -171,6 +171,71 @@ graph TB
 
 如 balle2016 [^balle2016endtoend]，单纯依靠一对AE+量化的类 VAE 结构，由于深度学习模型本身的边际效用递减问题，即便经过充分训练， $y$ 还依然残留大量依赖 (即冗余)，无法进一步逼近熵模型对 $p(y_i)$ 估计的极限，产出更容易被熵模型压缩的编码。balle2018 [^balle2018variational] 和 minnen2018 [^minnen2018joint] 本质上是引入条件熵模型 (Conditional Entropy Model, CEM)，最终编码由 $p(y_i|Cond)$ 指导，而这一条件 $Cond$ 可以认为其对应着 $y$ 中残存的依赖的结构。在 balle2018 [^balle2018variational] 中，CEM 选用 GSM， $Cond$ 是由 hyperprior side information 分支产生的参数 $\sigma$，依照论文的分析，这一分支可以认为表示着作者发现的 $y$ 局部的分布的方差对 $y$ 的粗粒度空间结构的依赖。在 minnen2018 [^minnen2018joint] 中，CEM 选用 GMM， $Cond$ 由 hyperprior 和 context model 混合模型产生的参数，这一分支可视为同时表示了 balle2018 指出的依赖和作者发现的精细化空间内的依赖。若后续研究者发现了 $y$ 中存在的新的依赖，他们可以继续沿用此范式，设计一个模块建模这个依赖，融合进 $Cond$ 中。
 
+```mermaid
+graph TB
+    P0["相邻 $y$ 之间存在局部相关性"]
+    P0.1["$y_i$ 与其邻域不独立，存在依赖"]
+    P0.2["$y_{\lt i}$ 当然也是 $y_i$ 的邻域"]
+
+    C0["$y_{\lt i}$ 可以自回归预测 $y_i$，作为 autoregressive prior"]
+    C1["设计一个自回归的 context model 作为条件熵模型的条件信息，没有任何码率代价"]
+
+    P0 ---> P0.1
+    P0.1 ---> C0
+    P0.2 ---> C0
+    C0 ---> C1
+
+    P2["context model 可从 $y_{\lt i}$ 在解码端重新计算，不需要额外 side information"]
+    C2["autoregressive prior 不增加 side-information rate"]
+
+    C0 ---> P2
+    P2 ---> C2
+    C2 ---> C1
+
+    P3["自回归无法访问 $y_{\gt i}$"]
+    C3["autoregressive prior 无法消除全部不确定性"]
+
+    C0 ---> P3
+    P3 ---> C3
+
+    P4["hyperprior 以 side information 的形式预先传输，在解码前已全部可知"]
+    C4["hyperprior 可以提供 context 缺失的信息"]
+
+    P4 ---> C4
+
+    C5["autoregressive prior 与 hyperprior 互补"]
+
+    C3 ---> C5
+    C4 ---> C5
+
+    C6.1["balle2018 针对的是 $y$ 的局部尺度依赖于低频结构"]
+    C6.2["balle2018 的 GSM 建模只设置 $\sigma$ 自由度"]
+
+    C6.3["预测 $y_i$ 能够为条件熵模型预测 $p_i$ 提供方向和 offset 信息"]
+    C6.4["引入自回归后，条件熵模型要增设 $\mu$ 自由度"]
+
+    C6["应同时预测 mean 与 scale"]
+
+    C6.1 ---> C6.2
+    C0 ---> C6.3
+    C6.3 ---> C6.4
+    C6.2 ---> C6
+    C6.4 ---> C6
+
+    C5 ---> C6
+
+    C7["应联合使用 autoregressive prior 与 hyperprior"]
+
+    C1 ---> C7
+    C5 ---> C7
+
+    C8["解码时同时使用 hyperprior 的 side information 和 context model 的预测，生成 GMM 的参数 $\sigma$ 和 $\mu$"]
+
+    C6 ---> C8
+    C7 ---> C8
+```
+
+
 ## References
 
 [^balle2016endtoend]: J. Balle, V. Laparra, E. P. Simoncelli, "End-to-end optimized image compression," _arXiv preprint arXiv:1611.01704_, 2016.
